@@ -545,6 +545,8 @@ func TestCopyLinkChownByName(t *testing.T) {
 		err     string
 	}{
 		{name: "numeric", flags: "--link --chown=1000:1000", mergeOp: true},
+		{name: "large numeric", flags: "--link --chown=2147483648:2147483648", mergeOp: true},
+		{name: "max uint32", flags: "--link --chown=4294967295:4294967295", mergeOp: true},
 		{name: "root", flags: "--link --chown=root:root", mergeOp: true},
 		{name: "user name", flags: "--link --chown=foo", mergeOp: true, err: "--chown=foo"},
 		{name: "user and group names", flags: "--link --chown=foo:bar", mergeOp: true, err: "--chown=foo:bar"},

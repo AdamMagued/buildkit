@@ -669,6 +669,23 @@ func TestFileOwnerWithUIDAndGID(t *testing.T) {
 	require.Equal(t, 1001, int(mkdir.Owner.Group.User.(*pb.UserOpt_ByID).ByID))
 }
 
+func TestFileOwnerWithLargeNumericUID(t *testing.T) {
+	t.Parallel()
+
+	st := Image("foo").File(Mkdir("bar/baz", 0701, WithUser("2147483648:4294967295")))
+	def, err := st.Marshal(t.Context())
+
+	require.NoError(t, err)
+
+	_, arr := parseDef(t, def.Def)
+
+	action := arr[1].Op.(*pb.Op_File).File.Actions[0]
+	mkdir := action.Action.(*pb.FileAction_Mkdir).Mkdir
+
+	require.Equal(t, uint32(2147483648), mkdir.Owner.User.User.(*pb.UserOpt_ByID).ByID)
+	require.Equal(t, uint32(4294967295), mkdir.Owner.Group.User.(*pb.UserOpt_ByID).ByID)
+}
+
 func TestFileCopyOwner(t *testing.T) {
 	t.Parallel()
 

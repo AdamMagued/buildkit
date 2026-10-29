@@ -3,7 +3,6 @@ package ops
 import (
 	"io"
 	"os"
-	"syscall"
 
 	"github.com/containerd/continuity/fs"
 	"github.com/moby/buildkit/snapshot"
@@ -29,6 +28,9 @@ func readUser(chopt *pb.ChownOpt, mu, mg snapshot.Mountable) (*copy.User, error)
 	if chopt.User != nil {
 		switch u := chopt.User.User.(type) {
 		case *pb.UserOpt_ByName:
+			if u.ByName == nil {
+				return nil, errors.New("invalid nil named user")
+			}
 			if mu == nil {
 				return nil, errors.New("invalid missing user mount")
 			}
@@ -46,10 +48,6 @@ func readUser(chopt *pb.ChownOpt, mu, mg snapshot.Mountable) (*copy.User, error)
 			}
 
 			ufile, err := openUserFile(dir, passwdPath)
-			if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
-				// Couldn't open the file. Considering this case as not finding the user in the file.
-				break
-			}
 			if err != nil {
 				return nil, err
 			}
@@ -62,10 +60,11 @@ func readUser(chopt *pb.ChownOpt, mu, mg snapshot.Mountable) (*copy.User, error)
 				return nil, err
 			}
 
-			if len(users) > 0 {
-				us.UID = users[0].Uid
-				us.GID = users[0].Gid
+			if len(users) == 0 {
+				return nil, errors.Errorf("user %q not found in /etc/passwd", u.ByName.Name)
 			}
+			us.UID = users[0].Uid
+			us.GID = users[0].Gid
 		case *pb.UserOpt_ByID:
 			us.UID = int(u.ByID)
 			us.GID = int(u.ByID)
@@ -75,6 +74,9 @@ func readUser(chopt *pb.ChownOpt, mu, mg snapshot.Mountable) (*copy.User, error)
 	if chopt.Group != nil {
 		switch u := chopt.Group.User.(type) {
 		case *pb.UserOpt_ByName:
+			if u.ByName == nil {
+				return nil, errors.New("invalid nil named group")
+			}
 			if mg == nil {
 				return nil, errors.New("invalid missing group mount")
 			}
@@ -92,10 +94,6 @@ func readUser(chopt *pb.ChownOpt, mu, mg snapshot.Mountable) (*copy.User, error)
 			}
 
 			gfile, err := openUserFile(dir, groupPath)
-			if errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
-				// Couldn't open the file. Considering this case as not finding the group in the file.
-				break
-			}
 			if err != nil {
 				return nil, err
 			}
@@ -108,9 +106,10 @@ func readUser(chopt *pb.ChownOpt, mu, mg snapshot.Mountable) (*copy.User, error)
 				return nil, err
 			}
 
-			if len(groups) > 0 {
-				us.GID = groups[0].Gid
+			if len(groups) == 0 {
+				return nil, errors.Errorf("group %q not found in /etc/group", u.ByName.Name)
 			}
+			us.GID = groups[0].Gid
 		case *pb.UserOpt_ByID:
 			us.GID = int(u.ByID)
 		}
